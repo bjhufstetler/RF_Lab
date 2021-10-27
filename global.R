@@ -8,11 +8,20 @@ library(plotly)
 # dat_in <- "000001010011100101110111"
 # dat <- "010001010100111000100101"
 
-sampleRate = 10
+#sampleRate = 10
 pps <- 1000 # points per sample
 freqBase <- 10 # Hz
+targetWaveBase <- sample(1:10/5)
+targetWave <- tibble(x = 0:3000/1000) %>%
+  mutate(temp = sin(pi * x * targetWaveBase[1]) +
+           sin(pi * x * targetWaveBase[2]) +
+           sin(pi * x * targetWaveBase[3]),
+         temp2 = temp + abs(min(temp)),
+         y = 2 * temp2 / max(temp2) - 1) %>%
+  select(x, y)
 
 formatData <- function(dat_in, bps, sampleRate){
+  sampleRate <- as.numeric(sampleRate)
   dat <- gsub(x = dat_in, pattern = " ", replacement = "")
   # Calculate required number of leading variables
   lead <- ifelse(nchar(dat) %% bps == 0, 0, bps - nchar(dat) %% bps) 
@@ -44,6 +53,11 @@ formatData <- function(dat_in, bps, sampleRate){
                    lineColor = rep(datParsed$lvl, each = 2))
 
   pEnc <- ggplot() +
+    geom_path(data = targetWave,
+              aes(x = x,
+                  y = y),
+              color = "red",
+              alpha = .6) +
     geom_path(data = datEnc,
               aes(x = x, y = y)) +
     geom_text(data = datParsed,
@@ -54,8 +68,13 @@ formatData <- function(dat_in, bps, sampleRate){
          y = "Output Channel",
          title = paste0("Encoding Schema - ", 2^bps, " NRZ")) +
     ylim(-1,1.2) +
+    xlim(0,3) +
     theme_bw() +
-    theme(legend.position = "none")
+    theme(legend.position = "none",
+          panel.grid.minor = element_blank()) +
+    scale_x_continuous(breaks = seq(0,3,1/sampleRate)) +
+    scale_y_continuous(breaks = seq(-1, 1, lvlMag),
+                       labels = scales::number_format(accuracy = .01))
     
   
   datOutputAM <- tibble(x = 1:(nrow(datParsed) * pps) / (sampleRate * pps)) %>%
@@ -79,7 +98,10 @@ formatData <- function(dat_in, bps, sampleRate){
          y = "Power",
          title = paste0("Modulation Schema - ", 2^bps, " ASK")) +
     theme_bw() +
-    theme(legend.position = "none")
+    theme(legend.position = "none",
+          panel.grid.minor = element_blank()) +
+    scale_x_continuous(breaks = seq(0,3,1/sampleRate)) +
+    xlim(0, 3)
   
   datOutputFM <- tibble(x = 1:(nrow(datParsed) * pps) / (sampleRate * pps)) %>%
     mutate(y = sin(2 * pi * x * (freqBase * rep(datParsed$lvl + 1, each = pps))),#+ freqDev * (rep(datParsed$yParsed, each = pps) - lvlMag/2))),
@@ -99,8 +121,31 @@ formatData <- function(dat_in, bps, sampleRate){
          y = "Power",
          title = paste0("Modulation Schema - ", 2^bps, " FSK")) +
     theme_bw() +
-    theme(legend.position = "none")
+    theme(legend.position = "none",
+          panel.grid.minor = element_blank()) +
+    scale_x_continuous(breaks = seq(0,3,1/sampleRate)) +
+    xlim(0, 3)
+
+  pDec <- ggplot() +
+    geom_path(data = targetWave,
+              aes(x = x,
+                  y = y),
+              color = "red",
+              alpha = .6) +
+    geom_line(data = data.frame(spline(datParsed %>% mutate(x = xParsed - 1/(2*sampleRate),
+                                                            y = yParsed - 0.1) %>% 
+                                         select(x,y),
+                                       n = 3 * sampleRate * 5)),
+              aes(x = x, y = y),
+              color = "blue") +
+    labs(x = "Time (s)",
+         y = "Power",
+         title = paste0("Demodulated Decoded Wave (Blue) vs Analog Input (Red)")) +
+    theme_bw() +
+    xlim(0,3)
+  
   return(list(pEnc = pEnc,
               pAM = pAM,
-              pFM = pFM))
+              pFM = pFM,
+              pDec = pDec))
 }  
