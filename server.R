@@ -1,9 +1,6 @@
 server <- function(input, output){
-  output$plotDataInput <- renderPlot(
-    encode(input$txtData, schema = input$radioEncode, bps = input$numBPS, rate = input$numSampleRate) %>%
-      ggplot() +
-      geom_line(aes(x = x, y = temp))
-  )
-  
-  output$DTOutput(DT::renderDataTable(encode(input$txtData, schema = input$radioEncode, bps = input$numBPS, rate = input$numSampleRate)))
+  outputValues <- reactive({formatData(dat = input$txtData, bps = input$numBPS, sampleRate = sampleRate)})
+  output$plotEnc <- renderPlot(outputValues()$pEnc)
+  output$plotAM <- renderPlot(outputValues()$pAM)
+  output$plotFM <- renderPlot(outputValues()$pFM)
 }

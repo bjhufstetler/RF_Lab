@@ -1,16 +1,14 @@
 
 ui <- fluidPage(
   title = "RF Lab",
-  titlePanel("Centurion Virtual RF Lab"),
+  titlePanel("Virtual Encoding and Modulation Lab for Centurions!"),
   sidebarPanel(
-    textAreaInput("txtData", "Data", value = "00100100"),
-    radioButtons("radioEncode", label = "Encoding Schema", choices = c("NRZ", "Manchester")),
-    sliderInput("numBPS", label = "Bits Per Sample", value = 1, min = 1, max = 3, step = 1),
-    sliderInput("numSampleRate", label = "Sample Rate (Hz)", value = 1, min = 1, max = 5, step = 1),
-    radioButtons("radioModulation", label = "Modulation Type", choices = c("AM", "FM"))
+    textAreaInput("txtData", "Data", value = "0000 1011 0010 1101 0100 0111 0110 0101 1000 1010 0001 1110"),
+    radioButtons("radioEncode", label = "Encoding Schema", choices = c("NRZ")),
+    sliderInput("numBPS", label = "Bits Per Sample", value = 4, min = 1, max = 4, step = 1)
   ),
   mainPanel(
-    plotOutput("plotDataInput"),
-    plotOutput("plotEncodedData"),
-    DT::DTOutput("DTEncodedData")
+    plotOutput("plotEnc"),
+    plotOutput("plotAM"),
+    plotOutput("plotFM")
   ))
