@@ -2,25 +2,14 @@ library(dplyr)
 library(tibble)
 library(shiny)
 library(ggplot2)
-library(plotly)
+#library(scales)
 # library(DescTools)
 
-# dat_in <- "000001010011100101110111"
-# dat <- "010001010100111000100101"
-
-#sampleRate = 10
 pps <- 1000 # points per sample
-freqBase <- 10 # Hz
-targetWaveBase <- sample(1:10/5)
-targetWave <- tibble(x = 0:3000/1000) %>%
-  mutate(temp = sin(pi * x * targetWaveBase[1]) +
-           sin(pi * x * targetWaveBase[2]) +
-           sin(pi * x * targetWaveBase[3]),
-         temp2 = temp + abs(min(temp)),
-         y = 2 * temp2 / max(temp2) - 1) %>%
-  select(x, y)
 
-formatData <- function(dat_in, bps, sampleRate){
+formatData <- function(dat_in, bps, sampleRate, datProb, freqBase){
+  freqBase <- as.numeric(freqBase)
+  if(is.null(dat_in) | dat_in == "") dat_in <- "0000"
   sampleRate <- as.numeric(sampleRate)
   dat <- gsub(x = dat_in, pattern = " ", replacement = "")
   # Calculate required number of leading variables
@@ -44,16 +33,18 @@ formatData <- function(dat_in, bps, sampleRate){
               sample = i)
     dat <- dat[-1:-bps]
   }
-  datParsed <- datParsed %>% mutate(lvl = txtSample %>% as.integer() %>% DescTools::BinToDec(),
-                                    xParsed = (sample - 1) * stepSize + stepSize / 2,
-                                    yParsed = lvlMag * lvl - .9)
+  datParsed <- datParsed %>% 
+    mutate(lvl = txtSample %>% as.integer() %>% DescTools::BinToDec(),
+           xParsed = (sample - 1) * stepSize + stepSize / 2,
+           yParsed = lvlMag * lvl - .9) %>%
+    filter(xParsed <= 3)
   # Encode
   datEnc <- tibble(x = c(rbind(datParsed$xParsed - stepSize / 2, datParsed$xParsed + stepSize / 2)),
                    y = rep(datParsed$lvl * lvlMag - 1, each = 2),
                    lineColor = rep(datParsed$lvl, each = 2))
 
   pEnc <- ggplot() +
-    geom_path(data = targetWave,
+    geom_path(data = datProb,
               aes(x = x,
                   y = y),
               color = "red",
@@ -66,13 +57,15 @@ formatData <- function(dat_in, bps, sampleRate){
                   label = txtSample)) +
     labs(x = "Time (s)",
          y = "Output Channel",
-         title = paste0("Encoding Schema - ", 2^bps, " NRZ")) +
+         title = paste0("Encoding Schema - ", 2^bps, " NRZ with a sample rate of ", sampleRate, " Hz. \nTotal data transfer speed: ", sampleRate * bps, " bits per second.")) +
     ylim(-1,1.2) +
     xlim(0,3) +
     theme_bw() +
     theme(legend.position = "none",
-          panel.grid.minor = element_blank()) +
-    scale_x_continuous(breaks = seq(0,3,1/sampleRate)) +
+          panel.grid.minor = element_blank(),
+          axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+    scale_x_continuous(breaks = seq(0,3,1/sampleRate),
+                       labels = scales::number_format(accuracy = .01)) +
     scale_y_continuous(breaks = seq(-1, 1, lvlMag),
                        labels = scales::number_format(accuracy = .01))
     
@@ -96,7 +89,7 @@ formatData <- function(dat_in, bps, sampleRate){
                   label = txtSample)) +
     labs(x = "Time (s)",
          y = "Power",
-         title = paste0("Modulation Schema - ", 2^bps, " ASK")) +
+         title = paste0(2^bps, " ASK Modulated onto a ", freqBase, " Hz carrier wave.")) +
     theme_bw() +
     theme(legend.position = "none",
           panel.grid.minor = element_blank()) +
@@ -119,7 +112,7 @@ formatData <- function(dat_in, bps, sampleRate){
     ylim(-1, 1.2) +
     labs(x = "Time (s)",
          y = "Power",
-         title = paste0("Modulation Schema - ", 2^bps, " FSK")) +
+         title = paste0(2^bps, " FSK Modulated onto a ", freqBase, " Hz carrier wave.")) +
     theme_bw() +
     theme(legend.position = "none",
           panel.grid.minor = element_blank()) +
@@ -127,7 +120,7 @@ formatData <- function(dat_in, bps, sampleRate){
     xlim(0, 3)
 
   pDec <- ggplot() +
-    geom_path(data = targetWave,
+    geom_path(data = datProb,
               aes(x = x,
                   y = y),
               color = "red",
